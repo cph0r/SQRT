@@ -2,7 +2,11 @@
 
 **Professional AI-powered selfie analysis with real-time feedback!**
 
-A modular Gradio application that analyzes selfie quality using advanced computer vision techniques, providing comprehensive feedback across multiple dimensions including face detection, technical quality, composition, and style.
+[![Production Ready](https://img.shields.io/badge/status-production%20ready-success)](https://github.com)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue)](https://github.com)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+A production-ready Gradio application that analyzes selfie quality using advanced computer vision techniques, providing comprehensive feedback across multiple dimensions including face detection, technical quality, composition, and style.
 
 ## 🚀 Features
 
@@ -15,7 +19,7 @@ A modular Gradio application that analyzes selfie quality using advanced compute
 
 ### 🎯 **Dual Analysis Modes**
 - **📤 Upload Mode**: Detailed analysis with downloadable reports (JSON, CSV, TXT)
-- **📹 Live Mode**: Real-time webcam analysis with instant feedback
+- **📹 Live Mode**: Real-time webcam streaming with continuous analysis every 2 seconds
 
 ### 🧠 **Intelligent Feedback**
 - Context-aware suggestions prioritized by impact
@@ -209,6 +213,50 @@ pip install -r requirements.txt
 - Close other applications using significant CPU/GPU
 - Reduce browser zoom level for better UI performance
 - Use Upload Mode for very high-resolution images
+
+## 🚀 Deployment
+
+### Hugging Face Spaces (Recommended)
+
+Deploy SQRT to Hugging Face Spaces with automated CI/CD:
+
+1. **Quick Deploy**:
+   - See detailed instructions in [DEPLOYMENT.md](DEPLOYMENT.md)
+   - Automatic deployment on every push to `main` branch
+   - Free hosting with GPU acceleration available
+
+2. **Requirements**:
+   - GitHub repository
+   - Hugging Face account
+   - Hugging Face access token (Write permissions)
+
+3. **Setup**:
+   ```bash
+   # 1. Create a Space on Hugging Face
+   # 2. Add GitHub secrets: HF_TOKEN and HF_SPACE_NAME
+   # 3. Push to main branch - automatic deployment!
+   ```
+
+4. **Access your deployed app**:
+   - `https://huggingface.co/spaces/YOUR_USERNAME/sqrt-selfie-rater`
+
+For complete deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+### Local Deployment
+
+For production-ready local deployment:
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run with Gunicorn (production server)
+pip install gunicorn
+gunicorn app:main -b 0.0.0.0:7860 -w 4
+
+# Or use the built-in Gradio server
+python app.py
+```
 
 ## 🤝 Contributing
 

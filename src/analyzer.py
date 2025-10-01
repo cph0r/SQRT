@@ -1,11 +1,15 @@
 """
 Main analysis orchestrator that coordinates all analysis modules.
+Optimized for production with caching and error handling.
 """
 
 import json
+import logging
 import numpy as np
 from PIL import Image
 from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
 
 from .face_detection import detect_faces, analyze_face_quality, analyze_eye_contact
 from .image_analysis import (
@@ -26,9 +30,26 @@ def score_selfie(image: Image.Image) -> str:
             "suggestions": ["Please upload an image to get a rating."]
         }, indent=2)
 
-    # Convert PIL Image to numpy array for OpenCV
-    img_rgb = image.convert("RGB")
-    img_array = np.array(img_rgb)
+    try:
+        # Convert PIL Image to numpy array for OpenCV
+        img_rgb = image.convert("RGB")
+        
+        # Resize large images for performance (max 4096px on longest side)
+        max_size = 4096
+        if max(img_rgb.size) > max_size:
+            ratio = max_size / max(img_rgb.size)
+            new_size = tuple(int(dim * ratio) for dim in img_rgb.size)
+            img_rgb = img_rgb.resize(new_size, Image.Resampling.LANCZOS)
+            logger.info(f"Resized image from {image.size} to {new_size} for processing")
+        
+        img_array = np.array(img_rgb)
+    except Exception as e:
+        logger.error(f"Error processing image: {e}", exc_info=True)
+        return json.dumps({
+            "scores": {},
+            "suggestions": ["Error processing image. Please try a different image."],
+            "error": str(e)
+        }, indent=2)
     
     # Detect faces first
     faces = detect_faces(img_array)

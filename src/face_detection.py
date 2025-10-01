@@ -1,10 +1,50 @@
 """
 Face detection and face-specific analysis module.
+Optimized for production with model caching and efficient processing.
 """
 
 import cv2
 import numpy as np
 from typing import Dict, Any, List
+from functools import lru_cache
+
+# Global cache for cascade classifiers to avoid reloading
+_FACE_CASCADE = None
+_PROFILE_CASCADE = None
+_EYE_CASCADE = None
+
+
+@lru_cache(maxsize=1)
+def _get_face_cascade():
+    """Load and cache the frontal face cascade classifier."""
+    global _FACE_CASCADE
+    if _FACE_CASCADE is None:
+        _FACE_CASCADE = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        )
+    return _FACE_CASCADE
+
+
+@lru_cache(maxsize=1)
+def _get_profile_cascade():
+    """Load and cache the profile face cascade classifier."""
+    global _PROFILE_CASCADE
+    if _PROFILE_CASCADE is None:
+        _PROFILE_CASCADE = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_profileface.xml'
+        )
+    return _PROFILE_CASCADE
+
+
+@lru_cache(maxsize=1)
+def _get_eye_cascade():
+    """Load and cache the eye cascade classifier."""
+    global _EYE_CASCADE
+    if _EYE_CASCADE is None:
+        _EYE_CASCADE = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_eye.xml'
+        )
+    return _EYE_CASCADE
 
 
 def detect_faces(image_array: np.ndarray) -> List[Dict[str, Any]]:
@@ -12,9 +52,9 @@ def detect_faces(image_array: np.ndarray) -> List[Dict[str, Any]]:
     gray = cv2.cvtColor(image_array, cv2.COLOR_RGB2GRAY)
     img_height, img_width = image_array.shape[:2]
     
-    # Load OpenCV's pre-trained face classifiers
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    profile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_profileface.xml')
+    # Use cached cascade classifiers for better performance
+    face_cascade = _get_face_cascade()
+    profile_cascade = _get_profile_cascade()
     
     # Try frontal face detection first
     faces = face_cascade.detectMultiScale(
@@ -164,8 +204,8 @@ def analyze_eye_contact(image_array: np.ndarray, faces: List[Dict[str, Any]]) ->
     face_region = image_array[y:y+h, x:x+w]
     face_gray = cv2.cvtColor(face_region, cv2.COLOR_RGB2GRAY)
     
-    # Load eye cascade classifier
-    eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
+    # Use cached eye cascade classifier
+    eye_cascade = _get_eye_cascade()
     
     # Detect eyes
     eyes = eye_cascade.detectMultiScale(face_gray, scaleFactor=1.1, minNeighbors=5, minSize=(20, 20))

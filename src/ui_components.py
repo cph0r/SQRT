@@ -1,15 +1,29 @@
 """
 Gradio UI components and interface definitions.
+Optimized for production with proper logging and error handling.
 """
 
 import gradio as gr
 import datetime
 import json
+import time
+import logging
 from PIL import Image
 from typing import Tuple
 
 from .analyzer import score_selfie, analyze_realtime
-from .report_generator import create_score_html, create_realtime_feedback_html, save_analysis_results
+from .report_generator import (
+    create_score_html, 
+    create_realtime_feedback_html, 
+    save_analysis_results
+)
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# Global variable for throttling real-time analysis
+_last_analysis_time = 0
+_analysis_interval = 2.0  # seconds
 
 
 def analyze_selfie_visual(image: Image.Image) -> str:
@@ -66,40 +80,45 @@ def analyze_and_generate_downloads(image: Image.Image) -> Tuple[str, str, str, s
     return html_result, json_path, csv_path, txt_path, download_message
 
 
-def analyze_webcam_selfie(image: Image.Image) -> str:
-    """Auto-analyze webcam captures for live mode."""
-    timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+def analyze_webcam_realtime(image: Image.Image) -> str:
+    """Continuous real-time analysis for live webcam feed."""
+    global _last_analysis_time
     
-    print(f"\n📷 [{timestamp}] WEBCAM SELFIE AUTO-ANALYSIS")
-    print(f"   ├─ Image received: {image is not None}")
-    if image is not None:
-        print(f"   ├─ Image type: {type(image)}")
-        print(f"   └─ Image size: {image.size if hasattr(image, 'size') else 'unknown'}")
+    current_time = time.time()
     
     if image is None:
-        print(f"   🔴 NO IMAGE - Waiting for selfie...")
         return """
         <div style="text-align: center; padding: 40px; color: #6b7280;">
-            <h3>📷 Take a selfie to see instant analysis!</h3>
-            <p>Results will appear here automatically</p>
+            <h3>📷 Waiting for webcam feed...</h3>
+            <p>Live analysis will appear automatically</p>
         </div>
         """
     
+    # Throttle analysis to avoid overwhelming the system
+    time_since_last = current_time - _last_analysis_time
+    if time_since_last < _analysis_interval and _last_analysis_time > 0:
+        # Return None to keep previous result displayed
+        return gr.update()  # No update, keep previous output
+    
     try:
-        print(f"   🟢 AUTO-ANALYZING WEBCAM SELFIE...")
-        # Use the same detailed analysis as upload mode
-        analysis_result = analyze_selfie_visual(image)
-        print(f"   ✅ Webcam selfie analysis complete!")
-        return analysis_result
+        # Update last analysis time
+        _last_analysis_time = current_time
+        
+        # Use optimized real-time analysis
+        analysis_data = analyze_realtime(image)
+        
+        # Create real-time feedback HTML
+        feedback_html = create_realtime_feedback_html(analysis_data)
+        
+        logger.debug(f"Real-time analysis completed - Score: {analysis_data.get('overall_score', 0):.1f}")
+        return feedback_html
+        
     except Exception as e:
-        print(f"   🔴 ERROR during webcam analysis: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error during real-time analysis: {str(e)}", exc_info=True)
         return f"""
-        <div style="text-align: center; padding: 40px; color: #ef4444; background: rgba(239, 68, 68, 0.1); border-radius: 15px;">
+        <div style="text-align: center; padding: 20px; color: #ef4444; background: rgba(239, 68, 68, 0.1); border-radius: 15px;">
             <h3>❌ Analysis Error</h3>
-            <p>Error: {str(e)}</p>
-            <p>Try taking another selfie!</p>
+            <p>Unable to analyze image. Please try again.</p>
         </div>
         """
 
@@ -155,21 +174,23 @@ def create_upload_interface() -> gr.Column:
 
 
 def create_live_interface() -> gr.Column:
-    """Create the live mode interface."""
+    """Create the live mode interface with continuous streaming."""
     with gr.Column(scale=1) as live_col:
-        # Webcam input that will capture images
+        # Webcam input with streaming enabled for continuous feed
         webcam_input = gr.Image(
             sources=["webcam"],
             type="pil",
-            label="📷 Take Your Selfie",
-            mirror_webcam=False
+            label="📷 Live Webcam Feed",
+            mirror_webcam=False,
+            streaming=True  # Enable continuous streaming
         )
         
-        # Auto-analyze when webcam captures a photo
-        gr.Markdown("📝 **Instructions:**")
-        gr.Markdown("1. 📷 Click the camera button above to take a selfie")
-        gr.Markdown("2. 🎯 Your photo will be analyzed automatically")
-        gr.Markdown("3. 📊 Results will appear on the right")
+        # Instructions for live mode
+        gr.Markdown("📝 **Live Mode Instructions:**")
+        gr.Markdown("1. 📷 Allow webcam access when prompted")
+        gr.Markdown("2. 🎯 Position yourself in frame")
+        gr.Markdown("3. 📊 Get instant feedback and suggestions every 2 seconds")
+        gr.Markdown("4. ✨ Adjust based on real-time tips!")
     
     return live_col, webcam_input
 
@@ -197,12 +218,12 @@ def setup_event_handlers(image_input, analyze_btn, download_json, download_csv, 
         outputs=[download_json, download_csv, download_txt]
     )
     
-    # Live mode event handlers
-    print("🔧 Setting up webcam_input.change event handler...")
-    webcam_input.change(
-        fn=analyze_webcam_selfie,
+    # Live mode event handlers - streaming mode for continuous analysis
+    logger.info("Setting up webcam streaming with real-time analysis")
+    webcam_input.stream(
+        fn=analyze_webcam_realtime,
         inputs=webcam_input,
         outputs=webcam_feedback,
-        show_progress="full"
+        show_progress=False  # Hide progress for smoother experience
     )
-    print("✅ Webcam event handler set up successfully!")
+    logger.info("Webcam streaming handler configured successfully")

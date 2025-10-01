@@ -1,23 +1,31 @@
 #!/usr/bin/env python3
 """
 SQRT - Selfie Quality Rater
-A modular Gradio application for analyzing selfie quality using computer vision.
+A production-ready Gradio application for analyzing selfie quality using computer vision.
 """
 
+import logging
 import gradio as gr
+from src.config import Config
 from src.utils import apply_gradio_patches, get_app_css, get_app_theme
 from src.ui_components import (
     create_upload_interface, create_live_interface, setup_event_handlers
 )
 
-# Apply compatibility patches first
+# Configure logging first
+Config.setup_logging()
+logger = logging.getLogger(__name__)
+
+# Apply compatibility patches
 apply_gradio_patches()
 
 
 def main() -> None:
     """Main application entry point."""
+    logger.info(f"Starting {Config.APP_NAME} v{Config.APP_VERSION}")
+    
     with gr.Blocks(
-        title="Selfie Quality Rater (SQRT)",
+        title=Config.APP_NAME,
         theme=get_app_theme(),
         css=get_app_css()
     ) as demo:
@@ -101,7 +109,8 @@ def main() -> None:
         """)
     
     # Launch the application
-    demo.launch(share=True, show_api=False, show_error=True)
+    logger.info("Launching Gradio interface")
+    demo.launch(**Config.get_launch_kwargs())
 
 
 if __name__ == "__main__":
